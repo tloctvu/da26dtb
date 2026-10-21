@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danh sách sinh viên - Lớp DA26DTB</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .student-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .student-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+
+    <!-- Header -->
+    <div class="max-w-5xl mx-auto bg-white rounded-xl shadow-md p-6 mb-8 border-t-4 border-blue-600 relative text-center">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">Lớp DA26DTB</h1>
+        <p class="text-gray-500 uppercase tracking-wider">Đại học Trà Vinh</p>
+        
+        <!-- Nút Thêm Sinh Viên -->
+        <button onclick="document.getElementById('addModal').classList.remove('hidden')" class="absolute top-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-10 h-10 flex items-center justify-center text-2xl font-bold shadow-lg transition-colors">
+            +
+        </button>
+    </div>
+
+    <!-- Thanh tìm kiếm -->
+    <div class="max-w-md mx-auto mb-8">
+        <input type="text" id="searchInput" placeholder="Nhập tên hoặc MSSV để tìm kiếm..." 
+               class="w-full px-5 py-3 rounded-full border border-gray-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 shadow-sm transition-all">
+    </div>
+
+    <!-- Container chứa thẻ sinh viên -->
+    <div id="studentGrid" class="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        <!-- Dữ liệu từ Firebase sẽ đổ vào đây -->
+        <div class="col-span-full text-center text-gray-500 mt-10" id="loadingText">Đang tải dữ liệu từ Firebase...</div>
+    </div>
+
+    <!-- Modal Thêm Sinh Viên (Ẩn mặc định) -->
+    <div id="addModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-xl p-8 max-w-md w-full shadow-2xl">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800 text-center">Thêm Sinh Viên Mới</h2>
+            <div class="space-y-4">
+                <input type="text" id="inpName" placeholder="Họ và tên (st.name)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                <input type="text" id="inpNumber" placeholder="Mã số sinh viên (st.number)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                <input type="text" id="inpCaption" placeholder="Sở thích / Ghi chú (st.caption)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                <input type="email" id="inpMail" placeholder="Email (st.mail)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                <input type="text" id="inpPhone" placeholder="Số điện thoại (st.phone)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+            </div>
+            <div class="mt-8 flex gap-4">
+                <button onclick="document.getElementById('addModal').classList.add('hidden')" class="w-1/2 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold transition-colors">Hủy</button>
+                <button id="btnSave" class="w-1/2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">Lưu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script kết nối Firebase (Module) -->
+    <script type="module">
+        // Import các hàm từ SDK Firebase v13.0.0
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+        import { getDatabase, ref, onValue, push, set } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+
+        // Cấu hình Firebase của anh Lộc
+        const firebaseConfig = {
+            apiKey: "AIzaSyBDaaSNd4GSa2XC9Ziy5fvh83rfnk5_7sY",
+            authDomain: "da26dtb.firebaseapp.com",
+            projectId: "da26dtb",
+            storageBucket: "da26dtb.firebasestorage.app",
+            messagingSenderId: "736044678476",
+            appId: "1:736044678476:web:cc99f1214f31ed6a9723e9",
+            measurementId: "G-W1JL8G58DD",
+            // Lưu ý: Thường cần thêm databaseURL đối với Realtime Database
+            databaseURL: "https://da26dtb-default-rtdb.firebaseio.com" 
+        };
+
+        // Khởi tạo Firebase và Database
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const studentsRef = ref(db, 'students');
+
+        const grid = document.getElementById('studentGrid');
+        const loadingText = document.getElementById('loadingText');
+
+        // Hàm tạo màu gradient ngẫu nhiên từ ký tự đầu tiên
+        function getGradient(char) {
+            const colors = [
+                'from-blue-500 to-blue-400', 'from-green-500 to-emerald-400', 
+                'from-purple-500 to-indigo-400', 'from-orange-500 to-yellow-400',
+                'from-pink-500 to-rose-400', 'from-teal-500 to-cyan-400'
+            ];
+            const index = char ? char.charCodeAt(0) % colors.length : 0;
+            return colors[index];
+        }
+
+        // Lắng nghe dữ liệu realtime từ Firebase
+        onValue(studentsRef, (snapshot) => {
+            grid.innerHTML = ''; // Xóa sạch grid cũ
+            
+            if (!snapshot.exists()) {
+                grid.innerHTML = '<div class="col-span-full text-center text-gray-500 mt-10">Chưa có dữ liệu sinh viên nào. Hãy thêm mới!</div>';
+                return;
+            }
+
+            const data = snapshot.val();
+            
+            for (let key in data) {
+                let st = data[key];
+                let firstChar = st.name ? st.name.charAt(0).toUpperCase() : '?';
+                let gradient = getGradient(firstChar);
+
+                let cardHTML = `
+                    <div class="student-card bg-white rounded-xl overflow-hidden border border-gray-200 relative pb-4 search-item" data-name="${st.name.toLowerCase()}" data-mssv="${st.number.toLowerCase()}">
+                        <div class="h-24 bg-gradient-to-br ${gradient} relative mb-12">
+                            <div class="w-20 h-20 bg-white rounded-full border-4 border-white absolute -bottom-10 left-1/2 transform -translate-x-1/2 shadow-md flex items-center justify-center text-3xl font-bold text-gray-700">
+                                ${firstChar}
+                            </div>
+                        </div>
+                        <div class="text-center px-4">
+                            <h2 class="text-xl font-bold text-gray-800">${st.name}</h2>
+                            <p class="text-sm font-semibold text-blue-600 mb-4">MSSV: ${st.number}</p>
+                        </div>
+                        <div class="px-6 space-y-2 text-sm text-gray-600">
+                            <div class="flex justify-between border-b border-dashed pb-2">
+                                <span class="font-semibold">Email:</span> <span>${st.mail}</span>
+                            </div>
+                            <div class="flex justify-between border-b border-dashed pb-2">
+                                <span class="font-semibold">SĐT:</span> <span>${st.phone}</span>
+                            </div>
+                            <div class="flex flex-col pt-1">
+                                <span class="font-semibold mb-1">Ghi chú:</span> 
+                                <span class="text-gray-500 italic">${st.caption}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.innerHTML += cardHTML;
+            }
+        });
+
+        // Xử lý thêm sinh viên lên Firebase
+        document.getElementById('btnSave').addEventListener('click', () => {
+            const name = document.getElementById('inpName').value;
+            const number = document.getElementById('inpNumber').value;
+            const caption = document.getElementById('inpCaption').value;
+            const mail = document.getElementById('inpMail').value;
+            const phone = document.getElementById('inpPhone').value;
+
+            if (!name || !number) {
+                alert("Vui lòng nhập ít nhất Họ tên và MSSV!");
+                return;
+            }
+
+            const newStudentRef = push(studentsRef);
+            set(newStudentRef, {
+                name: name,
+                number: number,
+                caption: caption,
+                mail: mail,
+                phone: phone
+            }).then(() => {
+                document.getElementById('addModal').classList.add('hidden');
+                // Xóa form
+                document.getElementById('inpName').value = '';
+                document.getElementById('inpNumber').value = '';
+                document.getElementById('inpCaption').value = '';
+                document.getElementById('inpMail').value = '';
+                document.getElementById('inpPhone').value = '';
+            }).catch((error) => {
+                alert("Lỗi khi thêm dữ liệu: " + error.message);
+            });
+        });
+
+        // Xử lý tìm kiếm tĩnh trên giao diện
+        document.getElementById('searchInput').addEventListener('input', function() {
+            let filter = this.value.toLowerCase();
+            let items = document.querySelectorAll('.search-item');
+            
+            items.forEach(item => {
+                let name = item.getAttribute('data-name');
+                let mssv = item.getAttribute('data-mssv');
+                if (name.includes(filter) || mssv.includes(filter)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
