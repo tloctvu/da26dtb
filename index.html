@@ -53,13 +53,12 @@
         </div>
     </div>
 
-    <!-- Script kết nối Firebase (Module) -->
+  <!-- Script kết nối Firestore (Module) -->
     <script type="module">
-        // Import các hàm từ SDK Firebase v13.0.0
         import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
-        import { getDatabase, ref, onValue, push, set } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+        import { getFirestore, collection, onSnapshot, addDoc } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 
-        // Cấu hình Firebase của anh Lộc
+        // Cấu hình Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBDaaSNd4GSa2XC9Ziy5fvh83rfnk5_7sY",
             authDomain: "da26dtb.firebaseapp.com",
@@ -67,20 +66,15 @@
             storageBucket: "da26dtb.firebasestorage.app",
             messagingSenderId: "736044678476",
             appId: "1:736044678476:web:cc99f1214f31ed6a9723e9",
-            measurementId: "G-W1JL8G58DD",
-            // Lưu ý: Thường cần thêm databaseURL đối với Realtime Database
-            databaseURL: "https://da26dtb-default-rtdb.firebaseio.com" 
+            measurementId: "G-W1JL8G58DD"
         };
 
-        // Khởi tạo Firebase và Database
         const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const studentsRef = ref(db, 'students');
+        const db = getFirestore(app);
+        const studentsRef = collection(db, 'students');
 
         const grid = document.getElementById('studentGrid');
-        const loadingText = document.getElementById('loadingText');
 
-        // Hàm tạo màu gradient ngẫu nhiên từ ký tự đầu tiên
         function getGradient(char) {
             const colors = [
                 'from-blue-500 to-blue-400', 'from-green-500 to-emerald-400', 
@@ -91,53 +85,51 @@
             return colors[index];
         }
 
-        // Lắng nghe dữ liệu realtime từ Firebase
-        onValue(studentsRef, (snapshot) => {
-            grid.innerHTML = ''; // Xóa sạch grid cũ
+        // Đọc dữ liệu Realtime từ Firestore
+        onSnapshot(studentsRef, (querySnapshot) => {
+            grid.innerHTML = ''; 
             
-            if (!snapshot.exists()) {
+            if (querySnapshot.empty) {
                 grid.innerHTML = '<div class="col-span-full text-center text-gray-500 mt-10">Chưa có dữ liệu sinh viên nào. Hãy thêm mới!</div>';
                 return;
             }
 
-            const data = snapshot.val();
-            
-            for (let key in data) {
-                let st = data[key];
+            querySnapshot.forEach((doc) => {
+                let st = doc.data();
                 let firstChar = st.name ? st.name.charAt(0).toUpperCase() : '?';
                 let gradient = getGradient(firstChar);
 
                 let cardHTML = `
-                    <div class="student-card bg-white rounded-xl overflow-hidden border border-gray-200 relative pb-4 search-item" data-name="${st.name.toLowerCase()}" data-mssv="${st.number.toLowerCase()}">
+                    <div class="student-card bg-white rounded-xl overflow-hidden border border-gray-200 relative pb-4 search-item" data-name="${(st.name || '').toLowerCase()}" data-mssv="${(st.number || '').toLowerCase()}">
                         <div class="h-24 bg-gradient-to-br ${gradient} relative mb-12">
                             <div class="w-20 h-20 bg-white rounded-full border-4 border-white absolute -bottom-10 left-1/2 transform -translate-x-1/2 shadow-md flex items-center justify-center text-3xl font-bold text-gray-700">
                                 ${firstChar}
                             </div>
                         </div>
                         <div class="text-center px-4">
-                            <h2 class="text-xl font-bold text-gray-800">${st.name}</h2>
-                            <p class="text-sm font-semibold text-blue-600 mb-4">MSSV: ${st.number}</p>
+                            <h2 class="text-xl font-bold text-gray-800">${st.name || 'Chưa cập nhật'}</h2>
+                            <p class="text-sm font-semibold text-blue-600 mb-4">MSSV: ${st.number || 'N/A'}</p>
                         </div>
                         <div class="px-6 space-y-2 text-sm text-gray-600">
                             <div class="flex justify-between border-b border-dashed pb-2">
-                                <span class="font-semibold">Email:</span> <span>${st.mail}</span>
+                                <span class="font-semibold">Email:</span> <span>${st.mail || ''}</span>
                             </div>
                             <div class="flex justify-between border-b border-dashed pb-2">
-                                <span class="font-semibold">SĐT:</span> <span>${st.phone}</span>
+                                <span class="font-semibold">SĐT:</span> <span>${st.phone || ''}</span>
                             </div>
                             <div class="flex flex-col pt-1">
                                 <span class="font-semibold mb-1">Ghi chú:</span> 
-                                <span class="text-gray-500 italic">${st.caption}</span>
+                                <span class="text-gray-500 italic">${st.caption || ''}</span>
                             </div>
                         </div>
                     </div>
                 `;
                 grid.innerHTML += cardHTML;
-            }
+            });
         });
 
-        // Xử lý thêm sinh viên lên Firebase
-        document.getElementById('btnSave').addEventListener('click', () => {
+        // Thêm sinh viên lên Firestore từ nút Lưu trên Web
+        document.getElementById('btnSave').addEventListener('click', async () => {
             const name = document.getElementById('inpName').value;
             const number = document.getElementById('inpNumber').value;
             const caption = document.getElementById('inpCaption').value;
@@ -149,24 +141,23 @@
                 return;
             }
 
-            const newStudentRef = push(studentsRef);
-            set(newStudentRef, {
-                name: name,
-                number: number,
-                caption: caption,
-                mail: mail,
-                phone: phone
-            }).then(() => {
+            try {
+                await addDoc(studentsRef, {
+                    name: name,
+                    number: number,
+                    caption: caption,
+                    mail: mail,
+                    phone: phone
+                });
                 document.getElementById('addModal').classList.add('hidden');
-                // Xóa form
                 document.getElementById('inpName').value = '';
                 document.getElementById('inpNumber').value = '';
                 document.getElementById('inpCaption').value = '';
                 document.getElementById('inpMail').value = '';
                 document.getElementById('inpPhone').value = '';
-            }).catch((error) => {
+            } catch (error) {
                 alert("Lỗi khi thêm dữ liệu: " + error.message);
-            });
+            }
         });
 
         // Xử lý tìm kiếm tĩnh trên giao diện
