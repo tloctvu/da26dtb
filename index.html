@@ -46,18 +46,21 @@
                 <input type="email" id="inpMail" placeholder="Email (st.mail)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
                 <input type="text" id="inpPhone" placeholder="Số điện thoại (st.phone)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
             </div>
-            <div class="mt-8 flex gap-4">
-                <button onclick="document.getElementById('addModal').classList.add('hidden')" class="w-1/2 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold transition-colors">Hủy</button>
-                <button id="btnSave" class="w-1/2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">Lưu</button>
-            </div>
+            <!-- Cập nhật lại phần cuối của Modal Thêm Sinh Viên -->
+<div class="mt-4 text-center">
+    <p id="formStatus" class="text-sm font-semibold text-blue-600"></p>
+</div>
+<div class="mt-6 flex gap-4">
+    <button onclick="document.getElementById('addModal').classList.add('hidden')" class="w-1/2 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold transition-colors">Hủy</button>
+    <button id="btnSave" class="w-1/2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">Lưu</button>
+</div>
         </div>
     </div>
 
   <!-- Script kết nối Firestore (Module) -->
     <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getFirestore, collection, onSnapshot, addDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-
+     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getFirestore, collection, onSnapshot, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 const firebaseConfig = {
     apiKey: "AIzaSyBDaaSNd4GSa2XC9Ziy5fvh83rfnk5_7sY",
     authDomain: "da26dtb.firebaseapp.com",
@@ -131,37 +134,73 @@ const studentsRef = collection(db, 'students');
         });
 
         // Thêm sinh viên lên Firestore từ nút Lưu trên Web
-        document.getElementById('btnSave').addEventListener('click', async () => {
-            const name = document.getElementById('inpName').value;
-            const number = document.getElementById('inpNumber').value;
-            const caption = document.getElementById('inpCaption').value;
-            const mail = document.getElementById('inpMail').value;
-            const phone = document.getElementById('inpPhone').value;
+       document.getElementById('btnSave').addEventListener('click', async (e) => {
+    e.preventDefault();
+    
+    const status = document.getElementById('formStatus');
+    const btnSave = document.getElementById('btnSave');
 
-            if (!name || !number) {
-                alert("Vui lòng nhập ít nhất Họ tên và MSSV!");
-                return;
-            }
+    // Lấy dữ liệu và loại bỏ khoảng trắng thừa bằng .trim()
+    const name = document.getElementById('inpName').value.trim();
+    const number = document.getElementById('inpNumber').value.trim();
+    const caption = document.getElementById('inpCaption').value.trim();
+    const mail = document.getElementById('inpMail').value.trim();
+    const phone = document.getElementById('inpPhone').value.trim();
 
-            try {
-                await addDoc(studentsRef, {
-                    name: name,
-                    number: number,
-                    caption: caption,
-                    mail: mail,
-                    phone: phone
-                });
-                document.getElementById('addModal').classList.add('hidden');
-                document.getElementById('inpName').value = '';
-                document.getElementById('inpNumber').value = '';
-                document.getElementById('inpCaption').value = '';
-                document.getElementById('inpMail').value = '';
-                document.getElementById('inpPhone').value = '';
-            } catch (error) {
-                alert("Lỗi khi thêm dữ liệu: " + error.message);
-            }
+    // Kiểm tra các trường bắt buộc
+    if (!name || !number) {
+        if (status) status.textContent = "Vui lòng nhập ít nhất Họ tên và MSSV!";
+        status.className = "text-sm font-semibold text-red-600"; // Đổi màu thông báo lỗi
+        return;
+    }
+
+    if (status) {
+        status.textContent = "Đang lưu...";
+        status.className = "text-sm font-semibold text-blue-600";
+    }
+    
+    // Khóa nút để tránh spam click
+    btnSave.disabled = true;
+
+    try {
+        await addDoc(studentsRef, {
+            name: name,
+            number: number,
+            caption: caption,
+            mail: mail,
+            phone: phone,
+            createdAt: serverTimestamp() // Thêm mốc thời gian lưu
         });
 
+        if (status) {
+            status.textContent = "✅ Thêm sinh viên thành công!";
+            status.className = "text-sm font-semibold text-green-600";
+        }
+
+        // Reset các ô nhập liệu
+        document.getElementById('inpName').value = '';
+        document.getElementById('inpNumber').value = '';
+        document.getElementById('inpCaption').value = '';
+        document.getElementById('inpMail').value = '';
+        document.getElementById('inpPhone').value = '';
+
+        // Đợi 1.5 giây rồi tự động đóng Modal
+        setTimeout(() => {
+            document.getElementById('addModal').classList.add('hidden');
+            status.textContent = ""; // Xóa thông báo cho lần mở sau
+        }, 1500);
+
+    } catch (error) {
+        console.error("Firestore error:", error);
+        if (status) {
+            status.textContent = "❌ Lỗi khi thêm dữ liệu: " + error.message;
+            status.className = "text-sm font-semibold text-red-600";
+        }
+    } finally {
+        // Mở khóa nút lại dù thành công hay thất bại
+        btnSave.disabled = false;
+    }
+});
         // Xử lý tìm kiếm tĩnh trên giao diện
         document.getElementById('searchInput').addEventListener('input', function() {
             let filter = this.value.toLowerCase();
