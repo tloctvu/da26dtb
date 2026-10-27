@@ -55,26 +55,25 @@
 
   <!-- Script kết nối Firestore (Module) -->
     <script type="module">
-       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getFirestore, collection, onSnapshot, addDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-        // Cấu hình Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyBDaaSNd4GSa2XC9Ziy5fvh83rfnk5_7sY",
-            authDomain: "da26dtb.firebaseapp.com",
-            projectId: "da26dtb",
-            storageBucket: "da26dtb.firebasestorage.app",
-            messagingSenderId: "736044678476",
-            appId: "1:736044678476:web:cc99f1214f31ed6a9723e9",
-            measurementId: "G-W1JL8G58DD"
-        };
 
-        const app = initializeApp(firebaseConfig);
-        // Dòng code hiện tại bị sai:
-// const db = getFirestore(app);
+const firebaseConfig = {
+    apiKey: "AIzaSyBDaaSNd4GSa2XC9Ziy5fvh83rfnk5_7sY",
+    authDomain: "da26dtb.firebaseapp.com",
+    projectId: "da26dtb",
+    storageBucket: "da26dtb.firebasestorage.app",
+    messagingSenderId: "736044678476",
+    appId: "1:736044678476:web:cc99f1214f31ed6a9723e9",
+    measurementId: "G-W1JL8G58DD"
+};
 
-// Sửa thành dòng này:
+const app = initializeApp(firebaseConfig);
+// Khai báo đúng tên database Firestore của anh Lộc
 const db = getFirestore(app, "da26dtb-tvu");
-        const studentsRef = collection(db, 'students');
+const studentsRef = collection(db, 'students');
+
+// ... (Giữ nguyên các hàm onSnapshot và addDoc ở bên dưới)
 
         const grid = document.getElementById('studentGrid');
 
