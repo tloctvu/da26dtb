@@ -69,7 +69,11 @@ import { getFirestore, collection, onSnapshot, addDoc } from "https://www.gstati
         };
 
         const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        // Dòng code hiện tại bị sai:
+// const db = getFirestore(app);
+
+// Sửa thành dòng này:
+const db = getFirestore(app, "da26dtb-tvu");
         const studentsRef = collection(db, 'students');
 
         const grid = document.getElementById('studentGrid');
